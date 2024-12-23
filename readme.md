@@ -11,6 +11,11 @@ This project aims to provide a robust solution for detecting UAVs (Unmanned Aeri
 ```bash
 pip install -r requirements.txt
 ```
+## Results and Discussion
+This section presents a comprehensive evaluation of the drone detection model's performance. The model was trained five times, with each training run consisting of 10 epochs.
+- Results are provided for both the training and testing datasets.
+
+[![Alt text](https://i.postimg.cc/nhf8sW-8w/results.png)](https://github.com/Alireza0K)
 
 ## Dataset
 
