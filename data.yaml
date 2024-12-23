@@ -1,0 +1,7 @@
+path: /Users/alireza/Documents/GitHub/QuadAndFix-Wing-Detection/both
+train: train
+val: valid
+
+names:
+  0: drone
+  1: Fix-wing-drone
