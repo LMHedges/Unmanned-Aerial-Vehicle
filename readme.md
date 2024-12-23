@@ -3,7 +3,7 @@
 This repository contains a YOLOv8-based model for detecting both regular drones (multirotors) and fixed-wing drones in images.
 <div  align="center">
 <h3 align='center'>Fixed-wing UAV</h3>
-<img  align="center" style="" src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmUzeHo3NnE3ZjM3M29tOXYwMXdiMHhpdDlhNzJmYm50MHZiaHIyNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/eWtwSaEZHRZfBU6mDR/giphy.gif">
+<img  align="center" src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmUzeHo3NnE3ZjM3M29tOXYwMXdiMHhpdDlhNzJmYm50MHZiaHIyNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/eWtwSaEZHRZfBU6mDR/giphy.gif">
 </div>
 
 <div align="center"><h3 align='center'>Drones (multirotors)</h3> <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmVmdHNoam1oaGY3Yjl6anY4amU5YzZpdDFiMWdtY3JvcWkzemdrayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/YFt1vuUWIUEK20032A/giphy.gif" alt="Image 1" style="display:inline-block; margin: 10px; max-width: 40% !important; height: auto;">
