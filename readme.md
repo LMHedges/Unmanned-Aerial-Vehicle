@@ -11,6 +11,16 @@ This repository contains a YOLOv8-based model for detecting both regular drones 
   <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXhzaWxvZjJpcXZibG1mYW82b3RvaGczeXpnOWwxcnFzMzJjcHl2MSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZexM3mTNT6wgeme0tw/giphy.gif" alt="Image 3" style="display:inline-block; margin: 10px; width: 40% !important; height: auto;">
 </div>
 
+Here are three images in a row:
+
+<div style="display: flex; justify-content: center; align-items: center;">
+  <img src="image1.jpg" alt="Image 1" style="max-width: 30%; height: auto; margin: 5px;">
+  <img src="image2.jpg" alt="Image 2" style="max-width: 30%; height: auto; margin: 5px;">
+  <img src="image3.jpg" alt="Image 3" style="max-width: 30%; height: auto; margin: 5px;">
+</div>
+
+Some text below the images.
+
 
 ## Overview
 
