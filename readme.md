@@ -3,8 +3,7 @@
 This repository contains a YOLOv8-based model for detecting both regular drones (multirotors) and fixed-wing drones in images.
 <div  align="center">
 <h3 align='center'>Fixed-wing UAV</h3>
-<img  align="center" src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmUzeHo3NnE3ZjM3M29tOXYwMXdiMHhpdDlhNzJmYm50MHZiaHIyNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/eWtwSaEZHRZfBU6mDR/giphy.gif">
-<img src="[https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmttc25lZzI1NTZjemlsbXkybWNhZzdidGZnaDBxazd1bGN0M3B0diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/F0s1DhmP8kjRyceiZn/giphy.gif](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmUzeHo3NnE3ZjM3M29tOXYwMXdiMHhpdDlhNzJmYm50MHZiaHIyNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/eWtwSaEZHRZfBU6mDR/giphy.gif)" alt="Image 2" style="display:inline-block; margin: 10px; width: 40% !important; height: auto;">
+  <img src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmUzeHo3NnE3ZjM3M29tOXYwMXdiMHhpdDlhNzJmYm50MHZiaHIyNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/eWtwSaEZHRZfBU6mDR/giphy.gif" alt="Image 3" style="display:inline-block; height: auto;">
 </div>
 
 <div align="center"style="display: flex !important;flex-direction: row;flex-wrap: nowrap;align-content: stretch;justify-content: space-evenly;align-items: center;"><h3 align='center'>Drones (multirotors)</h3> <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmVmdHNoam1oaGY3Yjl6anY4amU5YzZpdDFiMWdtY3JvcWkzemdrayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/YFt1vuUWIUEK20032A/giphy.gif" alt="Image 1" style="display:inline-block; margin: 10px; width: 40% !important; height: auto;">
