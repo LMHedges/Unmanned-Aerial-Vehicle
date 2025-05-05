@@ -23,7 +23,9 @@ if not cam.isOpened():
     ser.close()
     exit()
 
-# Get webcam resolution (default)
+# Set webcam resolution to 640x480 for better image clarity
+cam.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+cam.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
 width = int(cam.get(cv.CAP_PROP_FRAME_WIDTH))
 height = int(cam.get(cv.CAP_PROP_FRAME_HEIGHT))
 if width == 0 or height == 0:
@@ -33,14 +35,6 @@ if width == 0 or height == 0:
     exit()
 print(f"Webcam initialized: {width}x{height}")
 
-# Save a test frame to verify capture
-ret, test_frame = cam.read()
-if ret and test_frame is not None:
-    cv.imwrite("test_frame.jpg", test_frame)
-    print("Test frame saved as test_frame.jpg")
-else:
-    print("Warning: Could not save test frame. Capture may be failing.")
-
 def map_to_servo(x, y, img_width, img_height):
     # Map pixel coordinates to servo angles
     # X servo: 0 to 180 degrees (left to right)
@@ -49,8 +43,23 @@ def map_to_servo(x, y, img_width, img_height):
     y_servo = int(np.clip(25 + ((img_height - y) / img_height) * (100 - 25), 25, 100))
     return x_servo, y_servo
 
+def clear_frame_buffer(cam):
+    # Clear webcam buffer by reading the latest frame
+    for _ in range(50):  # Read up to 50 frames to ensure buffer is cleared
+        cam.grab()  # Grab without decoding to clear buffer
+    ret, frame = cam.read()  # Read the latest frame
+    return ret, frame
+
+# Variables to persist detection state
+last_state = 'S'
+last_x_servo = 0
+last_y_servo = 25
+frame_count = 0
+targeting_no_detection_count = 0
+MAX_TARGETING_NO_DETECTION_FRAMES = 3  # Persist in TARGETING for 3 frames (~1.2s)
+waiting_for_center_check = False  # Flag to check centering after moving in TARGETING
+
 try:
-    frame_count = 0
     while True:
         ret, frame = cam.read()
         if not ret or frame is None or len(np.shape(frame)) == 0:
@@ -58,46 +67,224 @@ try:
             continue
 
         frame_count += 1
-        # Process every other frame to reduce load
-        if frame_count % 2 == 0:
+        # Process every 4th frame to reduce backlog
+        process_frame = (frame_count % 4 == 0)
+
+        if process_frame:
             # Run YOLO model on the frame
             results = model(frame)
             detect = results[0].plot()
 
-            # Initialize default state and angles
-            state = 'S'  # SEARCHING
-            x_servo, y_servo = 0, 25  # Default servo positions
+            # Initialize state and angles
+            state = last_state
+            x_servo, y_servo = last_x_servo, last_y_servo
+
+            print(f"Processing frame {frame_count}, Resolution: {width}x{height}, Current state: {state}")
 
             # Process detections
             if len(results[0].boxes) > 0:
                 # Get the first detected drone (highest confidence)
                 box = results[0].boxes[0]
                 confidence = box.conf.item()
-                print(f"Detection: Confidence={confidence:.2f}, Box={box.xyxy[0].tolist()}")
-                if confidence > 0.3:  # Lowered threshold
-                    # Calculate bounding box center
-                    x_center = (box.xyxy[0][0] + box.xyxy[0][2]) / 2
-                    y_center = (box.xyxy[0][1] + box.xyxy[0][3]) / 2
-                    print(f"Center: x={x_center:.1f}, y={y_center:.1f}")
-                    # Map to servo angles
-                    x_servo, y_servo = map_to_servo(x_center, y_center, width, height)
-                    # Set state to LOCKED_ON if centered, else TARGETING
-                    state = 'L' if abs(x_center - width/2) < 50 and abs(y_center - height/2) < 50 else 'T'
-                    print(f"State: {state}, Servo: x={x_servo}, y={y_servo}")
+                print(f"Initial Detection: Confidence={confidence:.2f}, Box={box.xyxy[0].tolist()}")
+                if confidence >= 0.2:  # High confidence for TARGETING/LOCKED_ON
+                    # Store initial detection coordinates as fallback
+                    x_center_initial = (box.xyxy[0][0] + box.xyxy[0][2]) / 2
+                    y_center_initial = (box.xyxy[0][1] + box.xyxy[0][3]) / 2
+                    x_servo_initial, y_servo_initial = map_to_servo(x_center_initial, y_center_initial, width, height)
 
-            # Send state and angles to Arduino
-            command = f"{state},{x_servo},{y_servo}\n"
-            print(f"Sending command: {command.strip()}")
-            ser.write(command.encode())
-            time.sleep(0.01)  # Small delay to prevent buffer overflow
+                    # Clear frame buffer to ensure fresh frame
+                    print("Clearing frame buffer (50 frames) due to detection")
+                    ret, frame = clear_frame_buffer(cam)
+                    if not ret:
+                        print("Error: Failed to clear frame buffer")
+                        continue
+                    # Re-run YOLO on the fresh frame
+                    results = model(frame)
+                    detect = results[0].plot()
+                    if len(results[0].boxes) == 0:
+                        print("No detection in fresh frame after buffer clear, using initial detection")
+                        # Fallback to initial detection
+                        x_servo, y_servo = x_servo_initial, y_servo_initial
+                        if last_state == 'S':
+                            state = 'T'
+                            waiting_for_center_check = True
+                            targeting_no_detection_count = 0
+                            print("Transitioning to TARGETING using initial detection")
+                        elif last_state == 'T':
+                            if waiting_for_center_check:
+                                if abs(x_center_initial - width/2) < 100 and abs(y_center_initial - height/2) < 100:
+                                    state = 'L'
+                                    targeting_no_detection_count = 0
+                                    print("Transitioning to LOCKED_ON using initial detection")
+                                else:
+                                    state = 'T'
+                                    targeting_no_detection_count = 0
+                                    print("Staying in TARGETING: Not centered (initial detection)")
+                                waiting_for_center_check = False
+                            else:
+                                state = 'T'
+                                waiting_for_center_check = True
+                                targeting_no_detection_count = 0
+                                print("Moving to new center in TARGETING (initial detection)")
+                        elif last_state == 'L':
+                            state = 'L'
+                            print("Holding LOCKED_ON (initial detection)")
+                        print(f"State updated to: {state}, Servo: x={x_servo}, y={y_servo}")
+                    else:
+                        # Process the fresh detection
+                        box = results[0].boxes[0]
+                        confidence = box.conf.item()
+                        print(f"Fresh Detection: Confidence={confidence:.2f}, Box={box.xyxy[0].tolist()}")
+                        if confidence >= 0.2:
+                            # Calculate bounding box center
+                            x_center = (box.xyxy[0][0] + box.xyxy[0][2]) / 2
+                            y_center = (box.xyxy[0][1] + box.xyxy[0][3]) / 2
+                            print(f"Center: x={x_center:.1f}, y={y_center:.1f}")
+                            # Map to servo angles
+                            x_servo, y_servo = map_to_servo(x_center, y_center, width, height)
 
-            # Display the frame with detections
-            try:
-                cv.imshow("Drone Detection", detect)
-                if cv.getWindowProperty("Drone Detection", cv.WND_PROP_VISIBLE) <= 0:
-                    print("Warning: Display window is not visible. It may be minimized or off-screen.")
-            except cv.error as e:
-                print(f"Error displaying frame: {e}")
+                            # State logic
+                            if last_state == 'S':
+                                state = 'T'
+                                waiting_for_center_check = True
+                                targeting_no_detection_count = 0
+                                print("Transitioning to TARGETING")
+                            elif last_state == 'T':
+                                if waiting_for_center_check:
+                                    if abs(x_center - width/2) < 100 and abs(y_center - height/2) < 100:
+                                        state = 'L'
+                                        targeting_no_detection_count = 0
+                                        print("Transitioning to LOCKED_ON")
+                                    else:
+                                        state = 'T'
+                                        targeting_no_detection_count = 0
+                                        print("Staying in TARGETING: Not centered")
+                                    waiting_for_center_check = False
+                                else:
+                                    state = 'T'
+                                    waiting_for_center_check = True
+                                    targeting_no_detection_count = 0
+                                    print("Moving to new center in TARGETING")
+                            elif last_state == 'L':
+                                state = 'L'
+                                print("Holding LOCKED_ON")
+                            print(f"State updated to: {state}, Servo: x={x_servo}, y={y_servo}")
+                        else:
+                            print(f"Fresh Confidence too low ({confidence:.2f} < 0.2), using initial detection")
+                            # Fallback to initial detection
+                            x_servo, y_servo = x_servo_initial, y_servo_initial
+                            if last_state == 'S':
+                                state = 'T'
+                                waiting_for_center_check = True
+                                targeting_no_detection_count = 0
+                                print("Transitioning to TARGETING using initial detection")
+                            elif last_state == 'T':
+                                if waiting_for_center_check:
+                                    if abs(x_center_initial - width/2) < 100 and abs(y_center_initial - height/2) < 100:
+                                        state = 'L'
+                                        targeting_no_detection_count = 0
+                                        print("Transitioning to LOCKED_ON using initial detection")
+                                    else:
+                                        state = 'T'
+                                        targeting_no_detection_count = 0
+                                        print("Staying in TARGETING: Not centered (initial detection)")
+                                    waiting_for_center_check = False
+                                else:
+                                    state = 'T'
+                                    waiting_for_center_check = True
+                                    targeting_no_detection_count = 0
+                                    print("Moving to new center in TARGETING (initial detection)")
+                            elif last_state == 'L':
+                                state = 'L'
+                                print("Holding LOCKED_ON (initial detection)")
+                            print(f"State updated to: {state}, Servo: x={x_servo}, y={y_servo}")
+                else:
+                    print(f"Initial Confidence too low ({confidence:.2f} < 0.2)")
+                    if last_state == 'L':
+                        state = 'S'
+                        x_servo, y_servo = 0, 25
+                        command = "S,0,25\n"
+                        print("Reverting to SEARCHING: Low confidence in LOCKED_ON, sending S,0,25")
+                        ser.flush()
+                        ser.write(command.encode())
+                        time.sleep(0.1)
+                    elif last_state == 'T':
+                        targeting_no_detection_count += 1
+                        state = 'T'
+                        x_servo, y_servo = last_x_servo, last_y_servo
+                        print(f"Staying in TARGETING: Low confidence, no detection count={targeting_no_detection_count}")
+                        if targeting_no_detection_count >= MAX_TARGETING_NO_DETECTION_FRAMES:
+                            state = 'S'
+                            x_servo, y_servo = 0, 25
+                            command = "S,0,25\n"
+                            print("Reverting to SEARCHING: Max no detection frames reached in TARGETING, sending S,0,25")
+                            ser.flush()
+                            ser.write(command.encode())
+                            time.sleep(0.1)
+                    else:
+                        state = 'S'
+                        print("Staying in SEARCHING: Low confidence")
+            else:
+                print("No detection in this frame")
+                if last_state == 'L':
+                    state = 'S'
+                    x_servo, y_servo = 0, 25
+                    command = "S,0,25\n"
+                    print("Reverting to SEARCHING: No detection in LOCKED_ON, sending S,0,25")
+                    ser.flush()
+                    ser.write(command.encode())
+                    time.sleep(0.1)
+                elif last_state == 'T':
+                    targeting_no_detection_count += 1
+                    state = 'T'
+                    x_servo, y_servo = last_x_servo, last_y_servo
+                    print(f"Staying in TARGETING: No detection, no detection count={targeting_no_detection_count}")
+                    if targeting_no_detection_count >= MAX_TARGETING_NO_DETECTION_FRAMES:
+                        state = 'S'
+                        x_servo, y_servo = 0, 25
+                        command = "S,0,25\n"
+                        print("Reverting to SEARCHING: Max no detection frames reached in TARGETING, sending S,0,25")
+                        ser.flush()
+                        ser.write(command.encode())
+                        time.sleep(0.1)
+                else:
+                    state = 'S'
+                    print("Staying in SEARCHING: No detection")
+
+            # Update last known state and angles
+            last_state = state
+            last_x_servo = x_servo
+            last_y_servo = y_servo
+
+            # Send commands for TARGETING or LOCKED_ON
+            if state in ['T', 'L']:
+                command = f"{state},{x_servo},{y_servo}\n"
+                print(f"Sending command: {command.strip()}")
+                ser.flush()
+                ser.write(command.encode())
+                if state == 'T':
+                    print("Pausing 0.3s to allow turret movement")
+                    time.sleep(0.3)  # Wait for turret to move to new position
+
+            # Read Arduino response (if any)
+            if ser.in_waiting > 0:
+                response = ser.readline().decode().strip()
+                if response:
+                    print(f"Arduino response: {response}")
+
+            # Video feed disabled to improve performance with higher resolution
+            # To re-enable, uncomment the following:
+            # display_frame = cv.resize(detect, (0, 0), fx=0.5, fy=0.5)
+            # try:
+            #     cv.imshow("Drone Detection", display_frame)
+            #     if cv.getWindowProperty("Drone Detection", cv.WND_PROP_VISIBLE) <= 0:
+            #         print("Warning: Display window is not visible.")
+            # except cv.error as e:
+            #     print(f"Error displaying frame: {e}")
+
+            # Cap frame rate with fixed delay
+            time.sleep(0.1)
 
         # Break the loop if 'q' is pressed
         if cv.waitKey(1) & 0xFF == ord("q"):
