@@ -275,13 +275,13 @@ try:
 
             # Video feed disabled to improve performance with higher resolution
             # To re-enable, uncomment the following:
-            # display_frame = cv.resize(detect, (0, 0), fx=0.5, fy=0.5)
-            # try:
-            #     cv.imshow("Drone Detection", display_frame)
-            #     if cv.getWindowProperty("Drone Detection", cv.WND_PROP_VISIBLE) <= 0:
-            #         print("Warning: Display window is not visible.")
-            # except cv.error as e:
-            #     print(f"Error displaying frame: {e}")
+            display_frame = cv.resize(detect, (0, 0), fx=0.5, fy=0.5)
+            try:
+                cv.imshow("Drone Detection", display_frame)
+                if cv.getWindowProperty("Drone Detection", cv.WND_PROP_VISIBLE) <= 0:
+                    print("Warning: Display window is not visible.")
+            except cv.error as e:
+                print(f"Error displaying frame: {e}")
 
             # Cap frame rate with fixed delay
             time.sleep(0.1)
